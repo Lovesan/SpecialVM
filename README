@@ -1,0 +1,9 @@
+Special [Olympics] VM is a
+    full-featured virtual 32 bit load/store RISC processor
+    with some periphery(namely, terminal and disks), but without FPU.
+
+See full description in SVM.c
+
+Currently it is implemented for Windows(because of SVM Console),
+    but Linux porters are welcome. It would be not to hard to rewrite
+    SVMCon.c for e.g. ncurses.

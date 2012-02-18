@@ -1,0 +1,19 @@
+CC = gcc
+CCLD = gcc
+CFLAGS = -Wall -pipe -O2
+CPPFLAGS = -DUNICODE -D_UNICODE
+LDFLAGS = -s -static
+
+PROGRAM = svm.exe
+OBJS = SVMOpts.o SVMLog.o SVMDisk.o SVMCon.o SVM.o Main.o
+
+all: $(PROGRAM)
+
+$(PROGRAM): $(OBJS)
+	$(CCLD) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+clean:
+	rm -f $(OBJS) $(PROGRAM)
