@@ -77,6 +77,7 @@
     <ClCompile Include="SVMDisk.c" />
     <ClCompile Include="SVMLog.c" />
     <ClCompile Include="SVMOpts.c" />
+    <ClCompile Include="SVMSleep.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SVM.h" />
@@ -84,6 +85,7 @@
     <ClInclude Include="SVMDisk.h" />
     <ClInclude Include="SVMLog.h" />
     <ClInclude Include="SVMOpts.h" />
+    <ClInclude Include="SVMSleep.h" />
     <ClInclude Include="SVMTypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

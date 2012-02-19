@@ -6,6 +6,7 @@
 #include "SVMCon.h"
 #include "SVMLog.h"
 #include "SVMDisk.h"
+#include "SVMSleep.h"
 
 SVM_BYTE* SVMInitMemory();
 SVM_WORD SVMCloseMemory();

@@ -337,6 +337,10 @@ sari rDst rSrc uiShift -- shift signed rSrc right according to uiShift and store
 [ 20 | rDst | rSrc | ... | 3 | uiShift | ... ]
      5      10     15    20  22        28
 
+halt -- halts processor execution until interrupt occurs.
+[ 21 | ... ]
+     5
+
 */
 
 typedef enum
@@ -424,7 +428,7 @@ decode:
   ir = -1;
   // TBD.
   SVMLogPrint("Instruction decoder is not yet implemented.\n");
-  return 1;
+  return 0;
   goto loop;
   return 1;
 }

@@ -11,6 +11,7 @@
 *.pdb
 *.suo
 *.user
+*.ilk
 *.sdf
 *.opensdf
 *.xdc

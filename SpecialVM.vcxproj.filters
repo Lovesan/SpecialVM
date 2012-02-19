@@ -33,6 +33,9 @@
     <ClCompile Include="SVMDisk.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SVMSleep.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SVMTypes.h">
@@ -51,6 +54,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SVMDisk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SVMSleep.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
