@@ -5,7 +5,7 @@ CPPFLAGS = -DUNICODE -D_UNICODE
 LDFLAGS = -s -static
 
 PROGRAM = svm.exe
-OBJS = SVMOpts.o SVMLog.o SVMDisk.o SVMCon.o SVM.o Main.o
+OBJS = SVMOpts.o SVMLog.o SVMDisk.o SVMCon.o SVMSleep.o SVM.o Main.o
 
 all: $(PROGRAM)
 

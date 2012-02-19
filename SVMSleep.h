@@ -5,4 +5,4 @@
 
 SVM_WORD SVMSleep(SVM_WORD milliseconds);
 
-#endif __SVM_SLEEP_H__
+#endif // __SVM_SLEEP_H__
