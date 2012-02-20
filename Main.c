@@ -13,24 +13,24 @@ int main(int argc, char **argv)
   {
     SVMCloseLog();
     return 1;
-  }  
-  if(!SVMInitConsole())
-  {
-    SVMCloseDisks();
-    SVMCloseLog();
-    return 1;
   }
   if(!SVMInitMemory())
   {
-    SVMCloseConsole();
     SVMCloseDisks();
     SVMCloseLog();
     return 1;
   }
-  rv = SVMMain();
-  SVMCloseMemory();
+  if(!SVMInitConsole())
+  {
+    SVMCloseMemory();
+    SVMCloseDisks();
+    SVMCloseLog();
+    return 1;
+  }
+  rv = SVMMain();  
   SVMCloseConsole();
+  SVMCloseMemory();
   SVMCloseDisks();
   SVMCloseLog();
-return rv;
+return (int)!rv;
 }

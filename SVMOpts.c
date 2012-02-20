@@ -71,7 +71,7 @@ start:
 logFileName:
   if(i >= argc)
   {
-    fprintf(stderr, usageMsg, argv[i]);
+    fprintf(stderr, usageMsg, argv[0]);
     return 0;
   }
   else
@@ -83,19 +83,27 @@ logFileName:
 memSize:
   if(i >= argc)
   {
-    fprintf(stderr, usageMsg, argv[i]);
+    fprintf(stderr, usageMsg, argv[0]);
   }
   else
   {
-    for(j = 0; (c=(argv[i])[j]); ++j)
+    for(j = 0; ( c = (argv[i])[j] ); ++j)
     {
       if(c >= '0' && c<='9')
         ms = ms * 10 + (c - '0');
       else
       {
-        fprintf(stderr, usageMsg, argv[i]);
+        fprintf(stderr, usageMsg, argv[0]);
         return 0;
       }
+    }
+    if(ms > 4095)
+    {
+        fprintf(stderr,
+                "Specified memory size(%d MB) exceeds address "
+                "space size\n",
+                ms);
+        return 0;
     }
     memSize = ms;
     ++i;
@@ -104,7 +112,7 @@ memSize:
 end:
   if(nDisks < 1)
   {
-    fprintf(stderr, usageMsg, argv[i]);
+    fprintf(stderr, usageMsg, argv[0]);
   }
   memSize *= 1024 * 1024;
   return 1;

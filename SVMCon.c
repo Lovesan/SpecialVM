@@ -31,8 +31,13 @@ SVM_WORD SVMGetSymbol(SVM_WORD idx)
 
 SVM_WORD SVMSetCursorPos(SVM_WORD pos)
 {
+  COORD coord;
   if(LOWORD(pos) < 80 && HIWORD(pos) < 25)
-    return SetConsoleCursorPosition(conOut, *(COORD*)&pos);
+  {
+    coord.X = LOWORD(pos);
+    coord.Y = HIWORD(pos);
+    return SetConsoleCursorPosition(conOut, coord);
+  }
   else
     return 0;
 }
@@ -41,7 +46,8 @@ SVM_WORD SVMGetCursorPos()
 {
   CONSOLE_SCREEN_BUFFER_INFO info;
   GetConsoleScreenBufferInfo(conOut, &info);
-  return *(SVM_WORD*)&info.dwCursorPosition;
+  return ((SVM_WORD)info.dwCursorPosition.X)
+         | ((SVM_WORD)info.dwCursorPosition.Y) << 16;
 }
 
 SVM_WORD SVMSetCursorVisibility(SVM_WORD visible)

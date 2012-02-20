@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include "SVM.h"
@@ -34,7 +35,6 @@ loadpt instruction loads page table from physical address pointing to array of 4
 
 SVM interrupt handlers are stored in 256-word long interrupt vector table(like in x86 real mode).
 loadivt instruction loads IVT from physical address.
-IVT entries point to physical addresses.
 
 Interrupt mapping is fixed:
 nonmaskable interrupts (exceptions):
@@ -60,12 +60,28 @@ Instructions list:
 jump rDst  -- jump indirectly to absolute address
   NOTE: JUMP OFFSETS, unlike load/store data offsets ARE MEASURED IN WORD, NOT IN BYTES
 [ 0 | rDst | 0 | ... ]
-    5     10   11    
+    5     10   13    
 
 iret  -- jump to address in IRR register, restore FLR from IFLR and IPR from IRR
   NOTE: JUMP OFFSETS, unlike load/store data offsets ARE MEASURED IN WORDS, NOT IN BYTES
 [ 0 | ... | 1 | ... ]
-    5    10   11     
+    5     10  13
+
+loadir rSrc -- load IRR from rSrc.
+[ 0 | rSrc | 2 | ... ]
+    5      10  13
+
+storeir rDst -- store IRR into rDst.
+[ 0 | rDst | 3 | ... ]
+    5      10  13
+
+loadifl rSrc -- load IFLR from rSrc.
+[ 0 | rSrc | 4 | ... ]
+    5      10  13
+
+storeifl rDst -- store IFLR into rDst.
+[ 0 | rDst | 5 | ... ]
+    5      10  13
 
 jumpr siOffset  -- jump to address relative to next instruction.
   NOTE: JUMP OFFSETS, unlike load/store data offsets ARE MEASURED IN WORDS, NOT IN BYTES
@@ -102,12 +118,12 @@ loadihz rDst imm -- load immediate to high halfword of rDst while zeroing low ha
 [ 4 | rDst | 4 | ... | immediate ]
     5     10   14
 
-loadfl rDst -- load FLR into rDst.
-[ 4 | rDst | 5 | ... ]
+loadfl rSrc -- load FLR from rSrc.
+[ 4 | rSRc | 5 | ... ]
     5     10   14
 
-loadar rDst -- load ARR into rDst.
-[ 4 | rDst | 6 | ... ]
+loadar rSRc -- load ARR from rSrc.
+[ 4 | rSrc | 6 | ... ]
     5      10  14
 
 loadivt rSrc -- load iterrupt vector table from address contained in rSrc.
@@ -343,40 +359,38 @@ halt -- halts processor execution until interrupt occurs.
 
 */
 
-typedef enum
-{
-  SVM_IR_DIV0,
-  SVM_IR_INVALID_INST,
-  SVM_IR_PAGE_FAULT,
-  SVM_IR_DOUBLE_FAULT,
-  SVM_IR_ALIGNMENT_FAULT,
-  SVM_IR_TIMER = 16,
-  SVM_IR_KEYBOARD,
-  SVM_IR_DISK,
-} SVM_INTR;
-
 static SVM_WORD regs[32];
 static SVM_WORD ipr;
 static SVM_WORD flr;
 static SVM_WORD iflr;
 static SVM_WORD arr;
 static SVM_WORD irr;
+static SVM_IR_DESC irStack[3];
 
-static SVM_WORD interruptVTable[255];
+static SVM_WORD irVectorTable[256];
 static SVM_HALF pageTable[4096];
 
 static SVM_BYTE *memory;
+static SVM_WORD memSize;
 
-static clock_t svmTimer;
+static clock_t timer;
+
+#define SVM_EQ (0x1)
+#define SVM_LT (0x2)
+#define SVM_GT (0x4)
+#define SVM_OV (0x8)
+#define SVM_IF (0x10)
+#define SVM_PG (0x20)
 
 SVM_WORD SVMMain()
 {
-  clock_t timer;
-  SVM_INT ir = -1, irLevel = 0;
-  SVM_INT key;
-  svmTimer = clock();
-loop:
+  clock_t newTimer;
+  SVM_INT ir = -1, irLevel = 0, key;
+  SVM_WORD iAddr;
+  SVM_HALF pge;
+  memSize = SVMGetMemSize();
   timer = clock();
+checkIr:
   if(SVM_IR_DIV0 == ir)
     goto enterUnmaskable;
   else if(SVM_IR_INVALID_INST == ir)
@@ -387,9 +401,9 @@ loop:
     goto enterUnmaskable;
   else if(SVM_IR_ALIGNMENT_FAULT == ir)
     goto enterUnmaskable;
-  else if(timer - svmTimer > 100)
+  else if((newTimer = clock()) - timer > SVM_TIMER_CLOCKS)
   {
-    svmTimer = timer;
+    timer = newTimer;
     ir = SVM_IR_TIMER;
     goto enterMaskable;
   }
@@ -403,40 +417,96 @@ loop:
     goto enterUnmaskable;
   else if(ir > 15 && ir < 256)
     goto enterMaskable;
-  else
-    goto decode;
+  goto fetch;
 enterUnmaskable:
-  irr = ipr;
-  iflr = flr;
-  ipr = interruptVTable[ir];
+  irStack[irLevel].ir = ir;
+  irStack[irLevel].ipr = irr = ipr;
+  irStack[irLevel].flr = iflr = flr;
+  flr &= ~SVM_IF;
+  if(irLevel > 1)
+  {
+    SVMLogPrint("********** Triple fault! Game over. **********\n"
+                "Interrupt was: %d IPR: %08X FLR: %08X\n"
+                "Previous interrupt was: %d IPR: %08X FLR: %08X\n"
+                "First interrupt was: %d IPR: %08X FLR: %08X\n",
+                irStack[2].ir, irStack[2].ipr, irStack[2].flr,
+                irStack[1].ir, irStack[1].ipr, irStack[1].flr,
+                irStack[0].ir, irStack[0].ipr, irStack[0].flr);
+    SVMLogContext();
+    SVMLogPrint("**********************************************\n");
+    return 0;
+  }
+  else if(irLevel > 0)
+  {
+    SVMLogPrint("***** Double fault! Your Kitten of Death awaits! *****\n"
+                "Interrupt was: %d IPR: %08X FLR: %08X\n"
+                "First interrupt was: %d IPR: %08X FLR: %08X\n",
+                irStack[1].ir, irStack[1].ipr, irStack[1].flr,
+                irStack[0].ir, irStack[0].ipr, irStack[0].flr);
+    SVMLogContext();
+    SVMLogPrint("******************************************************\n");
+    ipr = irVectorTable[SVM_IR_DOUBLE_FAULT];
+    ++irLevel;
+    goto fetch;
+  }  
+  ipr = irVectorTable[ir];
   ++irLevel;
-  if(irLevel > 2)
-  {
-    SVMLogPrint("Triple fault(INT %d). Game over.\n", ir);
-    return 1;
-  }
-  else if(irLevel > 1)
-  {
-    SVMLogPrint("Double fault at %08X. Your Kitten of Death awaits!\n", ipr);
-  }
-  goto decode;
+  goto fetch;
 enterMaskable:
-  if(flr & 0x10)
+  if(flr & SVM_IF)
     goto enterUnmaskable;
-  goto decode;
-decode:
+  goto fetch;
+fetch:  
   ir = -1;
-  // TBD.
+  if(flr & SVM_PG)    
+  {
+    iAddr = ipr & 0xFFFFF;
+    pge = pageTable[ipr >> 20];
+    if(!(pge & 0x1000))
+    {
+      ir = SVM_IR_PAGE_FAULT;
+      goto checkIr;
+    }
+    iAddr &= (pge & 0xFFF) << 20;
+  }
+  else  
+    iAddr = ipr;
+  if(iAddr > memSize)
+  {
+    SVMLogPrint("***** IPR out of physical memory range! Machine halted. *****\n");
+    SVMLogContext();
+    SVMLogPrint("*************************************************************\n");
+    return 0;
+  }
+decode:
   SVMLogPrint("Instruction decoder is not yet implemented.\n");
   return 0;
-  goto loop;
+  goto checkIr;
+  return 1;
+}
+
+SVM_WORD SVMLogContext()
+{
+  int i;
+  SVMLogPrint("IPR: %08X FLR: %08X ARR: %08X\n", ipr, irr, flr, arr);
+  for(i = 0; i < 32; ++i)
+  {
+    SVMLogPrint("GPR %d: \n", i, regs[i]);
+  }
   return 1;
 }
 
 SVM_BYTE* SVMInitMemory()
 {
   SVM_WORD size = SVMGetMemSize();
-  return (memory = (SVM_BYTE*)malloc(size));
+  SVM_BYTE *mem = (SVM_BYTE*)malloc(size);
+  if(!mem)
+  {
+      fprintf(stderr,
+              "Unable to allocate SVM physical memory (%d MB).\n",
+              size >> 20);
+  }
+  return mem;
 }
 
 SVM_WORD SVMCloseMemory()
